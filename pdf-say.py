@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
-import pdfplumber
 import sys
+import os
 import argparse
+import pdfplumber
 from collections import Counter
 import subprocess
 import tempfile
-import os
+import threading
+import time
+import itertools
 
 def extract_main_text(pdf_file):
     main_text = []
@@ -45,7 +48,7 @@ def extract_main_text(pdf_file):
             if current_line:
                 lines.append(' '.join(current_line))
 
-            page_text = '\n'.join(lines)
+            page_text = ' '.join(lines)
             main_text.append(page_text)
 
     # Join all page texts
@@ -62,25 +65,67 @@ def extract_main_text(pdf_file):
     return full_text
 
 def narrate_text(text, voice=None):
+    # Create a temporary file to store the text
+    with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.txt') as temp_text_file:
+        temp_text_file.write(text)
+        temp_text_file_path = temp_text_file.name
+
+    # Create a temporary file to store the audio
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.aiff') as temp_audio_file:
+        temp_audio_file_path = temp_audio_file.name
+
     say_command = ['say']
 
     if voice:
         say_command.extend(['-v', voice])
 
-    # Create a temporary file to store the text
-    with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_file:
-        temp_file.write(text)
-        temp_file_path = temp_file.name
+    # Output to the audio file
+    say_command.extend(['-f', temp_text_file_path, '-o', temp_audio_file_path])
 
-    say_command.extend(['-f', temp_file_path])
+    # Spinner to indicate progress
+    spinner_done = False
+
+    def spinner():
+        for c in itertools.cycle(['|', '/', '-', '\\']):
+            if spinner_done:
+                break
+            sys.stdout.write('\rConverting text to audio... ' + c)
+            sys.stdout.flush()
+            time.sleep(0.1)
+        sys.stdout.write('\rConversion complete!      \n')
+        sys.stdout.flush()
 
     try:
-        subprocess.run(say_command)
+        # Start the spinner in a separate thread
+        spinner_thread = threading.Thread(target=spinner)
+        spinner_thread.start()
+
+        # Generate the audio file
+        subprocess.run(say_command, check=True)
+
     except Exception as e:
-        print(f"Error running 'say' command: {e}")
+        print(f"Error: {e}")
     finally:
-        # Remove the temporary file
-        os.remove(temp_file_path)
+        # Stop the spinner
+        spinner_done = True
+        spinner_thread.join()
+
+        # Remove the temporary text file
+        os.remove(temp_text_file_path)
+
+    # Play the audio file with afplay
+    afplay_command = ['afplay', temp_audio_file_path]
+
+    print("\nPlaying audio. Press SPACE to pause/resume, 'S' to stop.\n")
+
+    try:
+        # Start playing the audio file
+        subprocess.run(afplay_command)
+    except Exception as e:
+        print(f"Error playing audio: {e}")
+    finally:
+        # Remove the temporary audio file
+        os.remove(temp_audio_file_path)
 
 def main():
     parser = argparse.ArgumentParser(description='Extract main body text from a PDF and narrate it using macOS text-to-speech.')
@@ -96,6 +141,7 @@ def main():
         sys.exit(1)
 
     try:
+        print("Extracting text from PDF...")
         text = extract_main_text(pdf_file)
         if not text.strip():
             print("No main text found in the PDF.")
@@ -107,4 +153,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
