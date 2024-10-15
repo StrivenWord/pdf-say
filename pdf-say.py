@@ -113,14 +113,18 @@ def narrate_text(text, voice=None):
         # Remove the temporary text file
         os.remove(temp_text_file_path)
 
-    # Play the audio file with afplay
-    afplay_command = ['afplay', temp_audio_file_path]
+    # Play the audio file with mpv
+    mpv_command = ['mpv', '--no-video', temp_audio_file_path]
 
-    print("\nPlaying audio. Press SPACE to pause/resume, 'S' to stop.\n")
+    print("\nPlaying audio. Use the following controls during playback:")
+    print("  Space: Pause/Resume")
+    print("  Left/Right Arrow: Seek backward/forward 5 seconds")
+    print("  Up/Down Arrow: Adjust volume")
+    print("  q: Quit playback\n")
 
     try:
         # Start playing the audio file
-        subprocess.run(afplay_command)
+        subprocess.run(mpv_command)
     except Exception as e:
         print(f"Error playing audio: {e}")
     finally:
@@ -153,4 +157,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
