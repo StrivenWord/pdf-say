@@ -113,14 +113,44 @@ def narrate_text(text, voice=None):
         # Remove the temporary text file
         os.remove(temp_text_file_path)
 
-    # Play the audio file with mpv
-    mpv_command = ['mpv', '--no-video', temp_audio_file_path]
+    # Create a temporary Lua script to display help text
+    help_text_lua = '''
+mp.register_event("file-loaded", function()
+    local help_text = [[
+MPV Playback Controls:
+SPACE or p          : Pause/Resume playback
+q or ESC            : Quit playback
 
-    print("\nPlaying audio. Use the following controls during playback:")
-    print("  Space: Pause/Resume")
-    print("  Left/Right Arrow: Seek backward/forward 5 seconds")
-    print("  Up/Down Arrow: Adjust volume")
-    print("  q: Quit playback\n")
+←  or  →            : Seek backward/forward 5 seconds
+↓  or  ↑            : Decrease/Increase volume by 2%
+[ or ]              : Decrease/Increase playback speed
+{ or }              : Halve/Double playback speed
+BACKSPACE           : Reset playback speed to normal
+
+SHIFT + ← or →      : Seek backward/forward 1 minute
+SHIFT + ↓ or ↑      : Decrease/Increase volume by 10%
+
+9 or 0              : Decrease/Increase volume by 2%
+m                   : Mute/Unmute audio
+f                   : Toggle fullscreen
+]]
+    mp.osd_message(help_text, 15)
+end)
+'''
+
+    with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.lua') as temp_lua_file:
+        temp_lua_file.write(help_text_lua)
+        temp_lua_file_path = temp_lua_file.name
+
+    # Play the audio file with mpv
+    mpv_command = [
+        'mpv',
+        '--force-window=yes',
+        f'--script={temp_lua_file_path}',
+        temp_audio_file_path
+    ]
+
+    print("Playing audio...")
 
     try:
         # Start playing the audio file
@@ -128,8 +158,9 @@ def narrate_text(text, voice=None):
     except Exception as e:
         print(f"Error playing audio: {e}")
     finally:
-        # Remove the temporary audio file
+        # Remove the temporary audio and Lua script files
         os.remove(temp_audio_file_path)
+        os.remove(temp_lua_file_path)
 
 def main():
     parser = argparse.ArgumentParser(description='Extract main body text from a PDF and narrate it using macOS text-to-speech.')
