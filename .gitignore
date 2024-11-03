@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Timestamped project backups
+pdf-say.py.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9]
+
+# Swap files
+*.swp
+
 # C extensions
 *.so
 
